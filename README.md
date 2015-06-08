@@ -8,6 +8,7 @@ Extension for Arduino IDE and ESP8266 for setup device Wi-Fi, register device ow
 Just download ZIP and unpack to `Documents/Arduino/libraries` directory.
 
 # How to
+You create new Arduino project and copy following code to sketch.
 ```cpp
 #include <EEPROM.h>
 #include <ESP8266WiFi.h>
@@ -23,7 +24,7 @@ Just download ZIP and unpack to `Documents/Arduino/libraries` directory.
 // 1883 - is port of MQTT brocker
 ESP8266Device dev("waterer", IPAddress(192, 168, 0, 101), 1883);
 
-// 
+// Variable for log time (not important)
 long int time = 0;
 
 void setup() {
@@ -34,6 +35,7 @@ void setup() {
   
   Serial.println("Hello.");
   
+  // Don't forget about next line
   dev.begin();
   
   // Here you can add your own handlers for data from MQTT brocker
@@ -61,6 +63,7 @@ void setup() {
 }
 
 void loop() {
+  // Next line is important
   dev.loop();
   
   // Send data to MQTT brocker every 10 sec
