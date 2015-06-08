@@ -3,3 +3,6 @@ Extension for Arduino IDE and ESP8266 for setup device Wi-Fi, register device ow
 
 # Dependency
 * PubSubClient https://github.com/Imroy/pubsubclient
+
+# Installation
+Just download ZIP and unpack to `Documents/Arduino/libraries` directory.
