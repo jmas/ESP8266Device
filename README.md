@@ -10,6 +10,9 @@ Just download ZIP and unpack to `Documents/Arduino/libraries` directory.
 # How to
 You create new Arduino project and copy following code to sketch.
 ```cpp
+// You can comment next line for disable Serial debug in ESP8266Device.h
+#define DEBUG 1
+
 #include <EEPROM.h>
 #include <ESP8266WiFi.h>
 #include <WiFiServer.h>
