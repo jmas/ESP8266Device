@@ -66,9 +66,10 @@ void loop() {
   // Next line is important
   dev.loop();
   
-  // Send data to MQTT brocker every 10 sec
+  // Send data to MQTT brocker every 10 sec (example)
   if (millis() - 10000 > time) {
     dev.send("water/value", "Hello, world!");
+    // Print current heap
     Serial.println(ESP.getFreeHeap());
     time = millis();
   }
