@@ -26,12 +26,14 @@ public:
     static const int STATE_NONE = -1;
     static const int STATE_UNCONFIGURED = 0;
     static const int STATE_CONFIGURED = 1;
-    static const int STATE_DISCONNECTED = 2;
     String name;
     int state;
     
     // constructor
-    ESP8266Device(String n, IPAddress mqttServerIp, int mqttPort): webServer(80), mqttClient(mqttServerIp, mqttPort) {
+    ESP8266Device(String n, IPAddress mqttServerIp, int mqttPort):
+        webServer(80),
+        mqttClient(mqttServerIp, mqttPort)
+    {
         name = n;
         eventsSize = 0;
     }
@@ -46,7 +48,7 @@ public:
         Serial.println("config.pwd: " + String(config.pwd));
         Serial.println("config.email: " + String(config.email));
 #endif
-        if (config.configured == true) {
+        if (config.configured == true && connectWiFi()) {
             beginConfigured();
             state = STATE_CONFIGURED;
         } else {
@@ -66,15 +68,18 @@ public:
                 break;
             case STATE_CONFIGURED:
                 // if not connected to Wi-Fi or lost connection
-                if (WiFi.status() != WL_CONNECTED) {
-                    connectWiFi();
-                    break;
+                while (WiFi.status() != WL_CONNECTED) {
+                    if (! connectWiFi()) {
+                        beginUnconfigured();
+                        state = STATE_UNCONFIGURED;
+                        return;
+                    }
                 }
                 // connect to mqtt
                 if (! mqttClient.connected()) {
                     if (mqttClient.connect(mqttId)) {
                         // register events
-                        for (int i=0; i<eventsSize; i++) {
+                        for (int i=0; i<eventsSize; ++i) {
                             mqttClient.subscribe(events[i].name);
                         }
 #ifdef DEBUG
@@ -83,8 +88,8 @@ public:
                     } else {
 #ifdef DEBUG
                         Serial.println("MQTT connect fail.");
-                        delay(500);
 #endif
+                        delay(500);
                     }
                 } else {
                     mqttClient.loop();
@@ -101,13 +106,27 @@ public:
         mqttClient.publish(topic, payload);
     }
     
-    // on
+    // on event
     void on(String eventName, std::function<void(String)> callback) {
         if (eventsSize < EVENTS_LEN) {
             events[eventsSize].name = eventName;
             events[eventsSize].callback = callback;
             eventsSize++;
         }
+    }
+    
+    // off event
+    void off(String eventName) {
+        Event tmpEvents[EVENTS_LEN];
+        int j = 0;
+        for (int i=0; i<eventsSize; ++i) {
+            if (events[i].name == eventName) {
+                continue;
+            }
+            tmpEvents[j] = events[i];
+            j++;
+        }
+        eventsSize = j;
     }
     
 private:
@@ -151,10 +170,10 @@ private:
                 }
             }
 #ifdef DEBUG
-            Serial.println("Data received.");
-            Serial.println("topic:");
+            Serial.println("Data received:");
+            Serial.println("-- topic:");
             Serial.println(pub.topic());
-            Serial.println("payload:");
+            Serial.println("-- payload:");
             Serial.println(pub.payload_string());
 #endif
         });
@@ -175,7 +194,7 @@ private:
 #endif
     }
     
-    void connectWiFi(void) {
+    boolean connectWiFi(void) {
 #ifdef DEBUG
         Serial.println("Connect to Wi-Fi.");
 #endif
@@ -190,13 +209,9 @@ private:
 #endif
             if (retries > RETRIES_LEN) {
 #ifdef DEBUG
-                Serial.print("Can\'t connect to W-Fi. Restart.");
+                Serial.print("Can\'t connect to W-Fi.");
 #endif
-//                config.configured = false;
-//                eepromWrite(0, config);
-                delay(500);
-                ESP.reset();
-                return;
+                return false;
             }
         }
 #ifdef DEBUG
@@ -206,6 +221,7 @@ private:
         Serial.print("STA IP: ");
         Serial.println(WiFi.localIP());
 #endif
+        return true;
     }
     
     // handle web root
