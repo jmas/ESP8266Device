@@ -65,14 +65,40 @@ public:
                 webServer.handleClient();
                 break;
             case STATE_CONFIGURED:
-                mqttClient.loop();
+                // if not connected to Wi-Fi or lost connection
+                if (WiFi.status() != WL_CONNECTED) {
+                    connectWiFi();
+                    break;
+                }
+                // connect to mqtt
+                if (! mqttClient.connected()) {
+                    if (mqttClient.connect(mqttId)) {
+                        // register events
+                        for (int i=0; i<eventsSize; i++) {
+                            mqttClient.subscribe(events[i].name);
+                        }
+#ifdef DEBUG
+                        Serial.println("MQTT connected.");
+#endif
+                    } else {
+#ifdef DEBUG
+                        Serial.println("MQTT connect fail.");
+                        delay(500);
+#endif
+                    }
+                } else {
+                    mqttClient.loop();
+                }
                 break;
         }
     }
     
     // send
     void send(String topic, String payload) {
-        //@TODO
+        if (! mqttClient.connected()) {
+            return;
+        }
+        mqttClient.publish(topic, payload);
     }
     
     // on
@@ -101,6 +127,7 @@ private:
     int eventsSize;
     ESP8266WebServer webServer;
     PubSubClient mqttClient;
+    String mqttId;
     
     // begin unconfigured
     void beginUnconfigured(void) {
@@ -116,6 +143,42 @@ private:
     
     // begin configured
     void beginConfigured(void) {
+        // mqtt setup
+        mqttClient.set_callback([this](const MQTT::Publish& pub){
+            for (int i=0; i<eventsSize; ++i) {
+                if (pub.topic() == events[i].name) {
+                    events[i].callback(pub.payload_string());
+                }
+            }
+#ifdef DEBUG
+            Serial.println("Data received.");
+            Serial.println("topic:");
+            Serial.println(pub.topic());
+            Serial.println("payload:");
+            Serial.println(pub.payload_string());
+#endif
+        });
+        // get mac address
+        uint8_t mac[6];
+        WiFi.macAddress(mac);
+        String macString = macToStr(mac);
+        // prepare mqtt id
+        mqttId = "";
+        mqttId.concat(config.email);
+        mqttId.concat("--");
+        mqttId.concat(macString);
+        mqttId.concat("--");
+        mqttId.concat(name);
+#ifdef DEBUG
+        Serial.print("mqttId: ");
+        Serial.println(mqttId);
+#endif
+    }
+    
+    void connectWiFi(void) {
+#ifdef DEBUG
+        Serial.println("Connect to Wi-Fi.");
+#endif
         int retries = 0;
         WiFi.mode(WIFI_STA);
         WiFi.begin(config.ssid, config.pwd);
@@ -127,66 +190,22 @@ private:
 #endif
             if (retries > RETRIES_LEN) {
 #ifdef DEBUG
-                Serial.print("Have wrong configuration. Reset config. Restart.");
+                Serial.print("Can\'t connect to W-Fi. Restart.");
 #endif
-                config.configured = false;
-                eepromWrite(0, config);
-                delay(1000);
+//                config.configured = false;
+//                eepromWrite(0, config);
+                delay(500);
                 ESP.reset();
                 return;
             }
         }
 #ifdef DEBUG
+        Serial.println("");
         Serial.println("Wi-Fi connected.");
         Serial.println("");
         Serial.print("STA IP: ");
         Serial.println(WiFi.localIP());
 #endif
-        // mqtt setup
-        mqttClient.set_callback([](const MQTT::Publish& pub){
-#ifdef DEBUG
-            Serial.println("Data received.");
-            Serial.println("topic:");
-            Serial.println(pub.topic());
-            Serial.println("payload:");
-            Serial.println(pub.payload_string());
-#endif
-            //@TODO
-        });
-        // get mac address
-        uint8_t mac[6];
-        WiFi.macAddress(mac);
-        String macString = macToStr(mac);
-        // prepare mqtt id
-        String mqttId = "";
-        mqttId.concat(config.email);
-        mqttId.concat("--");
-        mqttId.concat(macString);
-        mqttId.concat("--");
-        mqttId.concat(name);
-#ifdef DEBUG
-        Serial.print("mqttId: ");
-        Serial.println(mqttId);
-#endif
-        // connect to mqtt
-        retries = 0;
-        while (retries < RETRIES_LEN) {
-            if (mqttClient.connect(mqttId)) {
-                mqttClient.publish("test/mqttclient/publish1", "hello world");
-                mqttClient.subscribe("test/mqttclient/topic1");
-            //@TODO
-#ifdef DEBUG
-                Serial.println("MQTT connected.");
-#endif
-                break;
-            } else {
-#ifdef DEBUG
-                Serial.println("MQTT connect fail.");
-#endif
-            }
-            retries++;
-            delay(500);
-        }
     }
     
     // handle web root
