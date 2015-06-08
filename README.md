@@ -78,3 +78,8 @@ void loop() {
   }
 }
 ```
+After sketch is uploaded to device and runned - you can find new Wi-Fi network called `waterer` with password `waterer`.
+
+When you connect to this network - open http://192.168.1.4/ - you'll get page for setup Device Wi-Fi connection.
+
+If you did some mistakes in Wi-Fi network Password - you can reboot device and wait 10-30 sec - then you can connect to `waterer` Wi-Fi network and do configuration again.
